@@ -83,10 +83,12 @@ def vista_resultados(expedientes, observaciones, perfil, ubigeo=None):
 
 
 def elegir_ule(expedientes):
-    ules = (expedientes.drop_duplicates("UBIGEO").sort_values("ULE")
+    """Buscador de ULE: se puede escribir el ubigeo o el nombre del distrito."""
+    ules = (expedientes.drop_duplicates("UBIGEO").sort_values("UBIGEO")
             .set_index("UBIGEO")["ULE"])
-    return st.selectbox("ULE", ules.index, index=None, format_func=ules.get,
-                        placeholder="Escribe el nombre del distrito…", key="ule_elegida")
+    return st.selectbox("ULE", ules.index, index=None, format_func=lambda u: f"{u} · {ules[u]}",
+                        placeholder="Escribe el ubigeo o el nombre del distrito…",
+                        filter_mode="contains", key="ule_elegida")
 
 
 def detalle_expediente(exp, observaciones, perfil):
@@ -131,22 +133,65 @@ def detalle_expediente(exp, observaciones, perfil):
 
 # ---------- Pestaña 2: ingreso de expedientes ----------
 
-def vista_ingreso(expedientes, observaciones):
-    with st.container(horizontal=True, vertical_alignment="bottom"):
-        deptos = st.multiselect("Departamento", sorted(expedientes["DEPARTAMENTO"].unique()),
-                                placeholder="Todos")
-        coords = st.multiselect("Coordinación territorial",
-                                sorted(expedientes["COORDINADOR TERRITORIAL"].unique()),
-                                placeholder="Todas")
-        tipos = st.pills("Tipo de solicitud", list(TIPOS), format_func=TIPOS.get,
-                         selection_mode="multi", default=list(TIPOS))
+def limpiar_filtros():
+    # Al cambiar la versión, todos los filtros cambian de clave y vuelven a su valor inicial
+    st.session_state.version_filtros = st.session_state.get("version_filtros", 0) + 1
 
-    df = expedientes
-    if deptos:
-        df = df[df["DEPARTAMENTO"].isin(deptos)]
+
+def filtro(columna, etiqueta, opciones, clave, placeholder="Todos", **opcionales):
+    """Lista de selección que se vacía al limpiar los filtros o cuando cambian sus opciones."""
+    return columna.multiselect(etiqueta, opciones, placeholder=placeholder, filter_mode="contains",
+                               key=f"{clave}_{hash(tuple(opciones))}", **opcionales)
+
+
+def filtrar_expedientes(expedientes):
+    """Filtros de la pestaña de ingreso. Devuelve los expedientes que cumplen todos y el periodo."""
+    v = st.session_state.get("version_filtros", 0)
+    primero = expedientes["f_ingreso"].min().date()
+    ultimo = expedientes["f_ingreso"].max().date()
+    with st.container(border=True):
+        with st.container(horizontal=True, vertical_alignment="bottom"):
+            rango = st.date_input("Fecha de ingreso", value=(primero, ultimo), min_value=primero,
+                                  max_value=ultimo, format="DD/MM/YYYY", key=f"fecha_{v}")
+            coords = filtro(st, "Coordinación territorial",
+                            sorted(expedientes["COORDINADOR TERRITORIAL"].unique()),
+                            f"ct_{v}", placeholder="Todas")
+            tipos = st.pills("Tipo de solicitud", list(TIPOS), format_func=TIPOS.get,
+                             selection_mode="multi", default=list(TIPOS), key=f"tipo_{v}")
+            st.button("Limpiar filtros", icon=":material/filter_alt_off:", on_click=limpiar_filtros)
+
+        # El ubigeo se ve primero, pero se arma al final: así solo ofrece los ubigeos
+        # que dejan el departamento, la provincia y el distrito elegidos
+        col_ubigeo, col_depto, col_prov, col_dist = st.columns(4)
+        lugar = expedientes.drop_duplicates("UBIGEO")
+        deptos = filtro(col_depto, "Departamento", sorted(lugar["DEPARTAMENTO"].unique()), f"depto_{v}")
+        if deptos:
+            lugar = lugar[lugar["DEPARTAMENTO"].isin(deptos)]
+        provs = filtro(col_prov, "Provincia", sorted(lugar["PROVINCIA"].unique()), f"prov_{v}",
+                       placeholder="Todas")
+        if provs:
+            lugar = lugar[lugar["PROVINCIA"].isin(provs)]
+        dists = filtro(col_dist, "Distrito", sorted(lugar["DISTRITO"].unique()), f"dist_{v}")
+        if dists:
+            lugar = lugar[lugar["DISTRITO"].isin(dists)]
+        nombres = lugar.set_index("UBIGEO")["DISTRITO"]
+        ubigeos = filtro(col_ubigeo, "Ubigeo", sorted(nombres.index), f"ubigeo_{v}",
+                         format_func=lambda u: f"{u} · {nombres[u]}")
+        if ubigeos:
+            lugar = lugar[lugar["UBIGEO"].isin(ubigeos)]
+
+    # Mientras se elige el rango, el calendario devuelve solo la fecha de inicio
+    desde, hasta = rango if len(rango) == 2 else (rango[0], ultimo)
+    df = expedientes[expedientes["UBIGEO"].isin(lugar["UBIGEO"])]
+    df = df[df["f_ingreso"].between(pd.Timestamp(desde), pd.Timestamp(hasta))]
     if coords:
         df = df[df["COORDINADOR TERRITORIAL"].isin(coords)]
-    df = df[df["TIPO DE SOLICITUDES"].isin(tipos)]
+    periodo = f"Expedientes que ingresaron del {desde:%d/%m/%Y} al {hasta:%d/%m/%Y}."
+    return df[df["TIPO DE SOLICITUDES"].isin(tipos)], periodo
+
+
+def vista_ingreso(expedientes, observaciones):
+    df, periodo = filtrar_expedientes(expedientes)
     if df.empty:
         st.info("No hay expedientes con estos filtros.")
         return
@@ -154,12 +199,14 @@ def vista_ingreso(expedientes, observaciones):
 
     evaluados = df["RESULTADO DE EVALUACIÓN"].isin(["CONFORME", "OBSERVADO"])
     observados = df["RESULTADO DE EVALUACIÓN"] == "OBSERVADO"
+    atencion = df["dias_atencion"].mean()
+    st.caption(periodo)
     with st.container(horizontal=True):
         st.metric("Expedientes recibidos", f"{len(df):,}", border=True)
         st.metric("Observados", f"{observados.sum() / max(evaluados.sum(), 1):.0%}", border=True,
                   help="Porcentaje de los expedientes evaluados que salieron observados.")
         st.metric("Por subsanar", int((df["ESTADO"] == "Observado: por subsanar").sum()), border=True)
-        st.metric("Tiempo de atención", f"{df['dias_atencion'].mean():.1f} días", border=True,
+        st.metric("Tiempo de atención", "—" if pd.isna(atencion) else f"{atencion:.1f} días", border=True,
                   help="Promedio de días hábiles entre el ingreso del expediente y el envío de la respuesta.")
         st.metric("En evaluación", int((df["ESTADO"] == "En evaluación").sum()), border=True)
 
