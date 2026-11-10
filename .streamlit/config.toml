@@ -1,3 +1,7 @@
+[client]
+# Sin el botón de CSV de las tablas: la descarga es con el botón de Excel
+disableDataExport = true
+
 [theme]
 baseRadius = "6px"
 showWidgetBorder = true

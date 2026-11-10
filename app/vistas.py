@@ -1,6 +1,7 @@
 """Las 2 pestañas del tablero: resultado de la evaluación e ingreso de expedientes."""
 import json
 import re
+from io import BytesIO
 from pathlib import Path
 
 import altair as alt
@@ -34,6 +35,28 @@ COLUMNAS_CT = {
 def texto(valor):
     """Valor de la matriz para el recorrido: las celdas vacías o con "-" no aplican."""
     return "No aplica" if valor in ("", "-") else valor
+
+
+
+def a_excel(tabla):
+    """Convierte la tabla en un archivo de Excel con el encabezado fijo, filtros y columnas a la medida."""
+    archivo = BytesIO()
+    with pd.ExcelWriter(archivo, engine="xlsxwriter") as excel:
+        tabla.to_excel(excel, sheet_name="Reporte", index=False)
+        hoja = excel.sheets["Reporte"]
+        hoja.freeze_panes(1, 0)
+        hoja.autofilter(0, 0, len(tabla), len(tabla.columns) - 1)
+        for i, columna in enumerate(tabla.columns):
+            ancho = max(len(columna), tabla[columna].astype(str).str.len().max())
+            hoja.set_column(i, i, min(ancho + 2, 60))
+    return archivo.getvalue()
+
+
+def boton_excel(tabla, nombre):
+    """Botón de descarga: el Excel se arma recién cuando se hace clic."""
+    st.download_button("Descargar en Excel", lambda: a_excel(tabla), file_name=f"{nombre}.xlsx",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                       icon=":material/download:", on_click="ignore")
 
 
 # ---------- Pestaña 1: resultado de la evaluación ----------
@@ -75,6 +98,7 @@ def vista_resultados(expedientes, observaciones, perfil, ubigeo=None):
     evento = st.dataframe(
         tabla, hide_index=True, on_select="rerun", selection_mode="single-row",
         key=f"tabla_{ubigeo}", alt=f"Expedientes de la ULE de {primera['DISTRITO']}")
+    boton_excel(tabla, f"expedientes_{ubigeo}")
 
     if not evento.selection.rows:
         st.caption(":material/touch_app: Selecciona un expediente en la tabla para ver su detalle.")
@@ -298,3 +322,8 @@ def ranking_ule(df):
             "dias": st.column_config.NumberColumn("Días del más antiguo", format="%d"),
         },
         alt="ULE ordenadas por expedientes por subsanar")
+    
+    titulos = {"UBIGEO": "Ubigeo", "ULE": "ULE", "COORDINADOR TERRITORIAL": "Coordinación",
+               "expedientes": "Expedientes", "observados": "Observados", "pct": "% observados",
+               "por_subsanar": "Por subsanar", "dias": "Días del más antiguo"}
+    boton_excel(ranking[list(titulos)].rename(columns=titulos).round(1), "ule_para_priorizar")
