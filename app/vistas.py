@@ -93,17 +93,32 @@ def vista_resultados(expedientes, observaciones, perfil, ubigeo=None):
         st.metric("Por subsanar", len(pendientes), border=True)
         st.metric("En evaluación", int((propios["ESTADO"] == "En evaluación").sum()), border=True)
 
+    # Filtros de la tabla (los indicadores de arriba siguen contando todos los expedientes)
+    with st.container(horizontal=True, vertical_alignment="bottom"):
+        estados = st.multiselect("Estado", [e for e in ESTADOS if e in set(propios["ESTADO"])],
+                                 placeholder="Todos", width=420, key=f"estado_{ubigeo}")
+        tipos = st.pills("Tipo de solicitud", list(TIPOS), format_func=TIPOS.get,
+                         selection_mode="multi", default=list(TIPOS), key=f"tipo_resultado_{ubigeo}")
+    filtrados = propios[propios["TIPO DE SOLICITUDES"].isin(tipos)]
+    if estados:
+        filtrados = filtrados[filtrados["ESTADO"].isin(estados)]
+    if filtrados.empty:
+        st.info("No hay expedientes con estos filtros.", icon=":material/filter_alt_off:")
+        return
+
     columnas = COLUMNAS_ULE | (COLUMNAS_CT if perfil == "CT" else {})
-    tabla = propios[list(columnas)].rename(columns=columnas)
+    tabla = filtrados[list(columnas)].rename(columns=columnas)
+    # La clave cambia con los filtros: así no queda marcada una fila de la tabla anterior
     evento = st.dataframe(
         tabla, hide_index=True, on_select="rerun", selection_mode="single-row",
-        key=f"tabla_{ubigeo}", alt=f"Expedientes de la ULE de {primera['DISTRITO']}")
+        key=f"tabla_{ubigeo}_{hash((tuple(estados), tuple(tipos)))}",
+        alt=f"Expedientes de la ULE de {primera['DISTRITO']}")
     boton_excel(tabla, f"expedientes_{ubigeo}")
 
     if not evento.selection.rows:
         st.caption(":material/touch_app: Selecciona un expediente en la tabla para ver su detalle.")
         return
-    detalle_expediente(propios.iloc[evento.selection.rows[0]], observaciones, perfil)
+    detalle_expediente(filtrados.iloc[evento.selection.rows[0]], observaciones, perfil)
 
 
 def elegir_ule(expedientes):
@@ -244,11 +259,15 @@ def vista_ingreso(expedientes, observaciones):
         st.markdown("**Expedientes recibidos por mes**")
         por_mes = df.groupby(df["f_ingreso"].dt.to_period("M")).size().reset_index(name="Expedientes")
         por_mes["Mes"] = [MESES[p.month - 1] + f" {p.year}" for p in por_mes["f_ingreso"]]
-        grafico = alt.Chart(por_mes).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+        base = alt.Chart(por_mes).encode(
             x=alt.X("Mes:N", sort=list(por_mes["Mes"]), title=None, axis=alt.Axis(labelAngle=0)),
-            y=alt.Y("Expedientes:Q", title="Expedientes"),
+            # Un poco más de alto que la barra mayor, para que su número no se corte
+            y=alt.Y("Expedientes:Q", title="Expedientes",
+                    scale=alt.Scale(domainMax=por_mes["Expedientes"].max() * 1.12)),
             tooltip=["Mes", "Expedientes"])
-        st.altair_chart(grafico, alt="Expedientes recibidos por mes")
+        barras = base.mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+        cantidades = base.mark_text(baseline="bottom", dy=-4).encode(text="Expedientes:Q")
+        st.altair_chart(barras + cantidades, alt="Expedientes recibidos por mes, con la cantidad de cada mes")
 
     with st.container(border=True):
         st.markdown("**ULE para priorizar la asistencia técnica**")

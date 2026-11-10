@@ -9,7 +9,7 @@ import streamlit as st
 from datos import cargar_datos
 from vistas import vista_ingreso, vista_resultados
 
-st.set_page_config(page_title="Info ExpeDJ", page_icon=":material/folder_shared:", layout="wide")
+st.set_page_config(page_title="Información sobre expedientes con DJ", page_icon=":material/folder_shared:", layout="wide")
 
 AVISO = ("Prototipo personal con datos ficticios. No contiene información real "
          "ni representa la posición del MIDIS-OFIS.")
@@ -18,7 +18,7 @@ AVISO = ("Prototipo personal con datos ficticios. No contiene información real 
 def iniciar_sesion():
     """Pide usuario y contraseña. Los usuarios están en .streamlit/secrets.toml."""
     with st.container(width=420):
-        st.title("Info ExpeDJ")
+        st.title("Información sobre expedientes con DJ")
         st.caption("Estado de los expedientes con DJ que envían las ULE")
         with st.form("ingreso"):
             usuario = st.text_input("Usuario", key="campo_usuario")
@@ -53,7 +53,7 @@ with st.sidebar:
         st.rerun()
     st.caption(AVISO)
 
-st.title("Info ExpeDJ")
+st.title("Información sobre expedientes con DJ")
 if usuario["perfil"] == "ULE":
     # La ULE solo ve la primera pestaña y solo sus expedientes
     vista_resultados(expedientes, observaciones, perfil="ULE", ubigeo=usuario["ubigeo"])
