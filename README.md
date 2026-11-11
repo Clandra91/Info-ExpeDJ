@@ -70,6 +70,8 @@ Lo que pidió la ULE, con sus palabras: "una página donde pueda ver el estado r
 
 **URL pública:** https://info-expedj-cap.streamlit.app/
 
+**Video de respaldo (1:49):** <https://drive.google.com/file/d/1OqVjQm88GeUEwalDTqj87rqPM6ISS_e9/view?usp=drive_link>
+
 | Perfil | Usuario | Contraseña |
 |---|---|---|
 | ULE de Comas | `ule_comas` | `comas2026` |
@@ -97,8 +99,7 @@ flowchart LR
     B -->|CSV, se refresca cada 10 min| C["app/datos.py<br/>une las matrices y calcula<br/>estado, documento y días"]
     L["data/ficticios<br/>copia en CSV"] -.->|respaldo sin conexión| C
     C --> D["app/app.py<br/>inicio de sesión con st.secrets"]
-    D -->|perfil ULE: solo su ubigeo| E["Resultado de la evaluación"]
-    D -->|perfil CT: todas las ULE| E
+    D -->|"perfil ULE: solo su ubigeo<br/>perfil CT: todas las ULE"| E["Resultado de la evaluación"]
     D -->|perfil CT| F["Ingreso de expedientes<br/>mapa, gráficos y ranking"]
     E --> X["Descarga en Excel"]
     F --> X
