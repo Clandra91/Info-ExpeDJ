@@ -93,12 +93,16 @@ def vista_resultados(expedientes, observaciones, perfil, ubigeo=None):
         st.metric("Por subsanar", len(pendientes), border=True)
         st.metric("En evaluación", int((propios["ESTADO"] == "En evaluación").sum()), border=True)
 
+
     # Filtros de la tabla (los indicadores de arriba siguen contando todos los expedientes)
+    v = st.session_state.get("version_resultado", 0)
     with st.container(horizontal=True, vertical_alignment="bottom"):
         estados = st.multiselect("Estado", [e for e in ESTADOS if e in set(propios["ESTADO"])],
-                                 placeholder="Todos", width=420, key=f"estado_{ubigeo}")
-        tipos = st.pills("Tipo de solicitud", list(TIPOS), format_func=TIPOS.get,
-                         selection_mode="multi", default=list(TIPOS), key=f"tipo_resultado_{ubigeo}")
+                                 placeholder="Todos", width=420, key=f"estado_{ubigeo}_{v}")
+        tipos = st.pills("Tipo de solicitud", list(TIPOS), format_func=TIPOS.get, selection_mode="multi",
+                         default=list(TIPOS), key=f"tipo_resultado_{ubigeo}_{v}")
+        st.button("Limpiar filtros", icon=":material/filter_alt_off:", key="limpiar_resultado",
+                  on_click=limpiar_filtros, args=("version_resultado",))
     filtrados = propios[propios["TIPO DE SOLICITUDES"].isin(tipos)]
     if estados:
         filtrados = filtrados[filtrados["ESTADO"].isin(estados)]
@@ -172,9 +176,10 @@ def detalle_expediente(exp, observaciones, perfil):
 
 # ---------- Pestaña 2: ingreso de expedientes ----------
 
-def limpiar_filtros():
-    # Al cambiar la versión, todos los filtros cambian de clave y vuelven a su valor inicial
-    st.session_state.version_filtros = st.session_state.get("version_filtros", 0) + 1
+def limpiar_filtros(contador="version_filtros"):
+    # Al cambiar la versión, los filtros cambian de clave y vuelven a su valor inicial.
+    # Cada pestaña tiene su propio contador, para que limpiar una no borre los filtros de la otra.
+    st.session_state[contador] = st.session_state.get(contador, 0) + 1
 
 
 def filtro(columna, etiqueta, opciones, clave, placeholder="Todos", **opcionales):
