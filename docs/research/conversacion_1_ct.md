@@ -36,7 +36,7 @@
 
 ## Qué aprendí y qué cambia en el prototipo
 
-- - Las consultas son diarias y forman una cadena: el ciudadano le pregunta a la ULE, la ULE al CT y el CT al área que atiende las solicitudes. Aumentan cuando los programas sociales cierran postulaciones.
+- Las consultas son diarias y forman una cadena: el ciudadano le pregunta a la ULE, la ULE al CT y el CT al área que atiende las solicitudes. Aumentan cuando los programas sociales cierran postulaciones.
 - La respuesta depende de la agenda del CT: si está en reuniones o en otra asistencia técnica, la ULE tiene que esperar.
 - Muchas ULE no se enteran del correo de observación. Además, por la rotación de personal, quien llega no conoce el historial.
 - Analizar qué ULE tienen más observaciones sería "una actividad más": el seguimiento solo funcionará si no le suma trabajo al CT.

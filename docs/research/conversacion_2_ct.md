@@ -36,7 +36,7 @@
 
 ## Qué aprendí y qué cambia en el prototipo
 
-- - Las consultas llegan por tres canales (llamadas, WhatsApp y correo) y aumentan cuando hay más expedientes pendientes u observados.
+- Las consultas llegan por tres canales (llamadas, WhatsApp y correo) y aumentan cuando hay más expedientes pendientes u observados.
 - Para responder, el CT tiene que buscar el expediente en el sistema, revisar la observación y explicarle a la ULE qué debe corregir.
 - Las dudas de las ULE se repiten: el motivo de la observación, qué corregir, cómo subsanar, si deben reenviar la DJ y cuánto tiempo tienen.
 - No existe un reporte consolidado: cada CT conoce solo los expedientes que revisa.
